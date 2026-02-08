@@ -60,3 +60,10 @@ A cinematic, high-performance visualization using `react-force-graph-2d` with:
 cd backend
 pip install -r requirements.txt
 python server.py
+```
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
