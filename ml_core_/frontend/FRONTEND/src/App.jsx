@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import ForceGraph2D from 'react-force-graph-2d';
+import ResultsPage from './ResultsPage';
 import { 
   Play, RotateCcw, Activity, Cpu, Crosshair, Zap, Wifi, 
   TrendingUp, List, X, AlertTriangle, Anchor, Wind, 
   Database, Info, Shield, Sword, FileText, Lock, Unlock,
-  Bomb, Wallet, Terminal, Maximize
+  Bomb, Wallet, Terminal, Maximize, BarChart3
 } from 'lucide-react';
 
 const API = 'http://localhost:5000/api';
 
 export default function App() {
-  // --- 1. CORE STATE ---
   const [graph, setGraph] = useState({ nodes: [], links: [] });
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState({ 
@@ -26,42 +26,42 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   
-  // --- 2. INTERACTION STATE ---
   const [hoveredNode, setHoveredNode] = useState(null);
   const [hoveredLink, setHoveredLink] = useState(null);
   const [trackedNode, setTrackedNode] = useState(null);
   const [trackHistory, setTrackHistory] = useState([]);
+  
   const [showCCPLedger, setShowCCPLedger] = useState(false);
   const [ccpData, setCcpData] = useState({ transactions: [], total_volume: 0, total_penalty: 0, cleared_count: 0 });
   const [showStabilityInfo, setShowStabilityInfo] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   
-  // --- 3. LAYOUT ENGINE (THE FIX) ---
-  const containerRef = useRef(null);
-  const fgRef = useRef();
+  const graphWrapperRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const fgRef = useRef();
 
-  // Intelligent Resize Observer: Fills the container exactly
   useEffect(() => {
-    if (!containerRef.current) return;
-    
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const { width, height } = entry.contentRect;
-        setDimensions({ width, height });
-      }
-    });
-    
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
+    const handleResize = () => {
+        if (graphWrapperRef.current) {
+            const { width, height } = graphWrapperRef.current.getBoundingClientRect();
+            setDimensions({ width, height });
+        }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    const observer = new ResizeObserver(handleResize);
+    if (graphWrapperRef.current) observer.observe(graphWrapperRef.current);
+    return () => {
+        window.removeEventListener('resize', handleResize);
+        observer.disconnect();
+    };
   }, []);
 
-  // Intro Timer
   useEffect(() => {
     const timer = setTimeout(() => setShowIntro(false), 2500); 
     return () => clearTimeout(timer);
   }, []);
 
-  // --- 4. API LOGIC ---
   const init = useCallback(async () => {
     setLoading(true);
     try {
@@ -124,25 +124,24 @@ export default function App() {
       }
   };
 
-  const zoomToFit = () => {
-      if (fgRef.current) fgRef.current.zoomToFit(600, 50);
-  };
+  const fitGraph = () => {
+      if (fgRef.current) {
+          fgRef.current.zoomToFit(400, 50); 
+      }
+  }
 
   useEffect(() => { init(); }, [init]);
 
-  // --- 5. PHYSICS ENGINE (Balanced & Stable) ---
+  // --- PHYSICS & ZOOM FIX ---
   useEffect(() => {
     if (fgRef.current) {
-      // Not too explosive, not too tight. "Just Right".
-      fgRef.current.d3Force('charge').strength(-1500); 
-      fgRef.current.d3Force('link').distance(link => link.type === 'membership' ? 180 : 120);
-      fgRef.current.d3Force('center').strength(0.4);
+      // Balanced Repulsion (Not too explody)
+      fgRef.current.d3Force('charge').strength(-2000); 
+      fgRef.current.d3Force('link').distance(link => link.type === 'membership' ? 180 : 100);
+      fgRef.current.d3Force('center').strength(0.2);
       
-      // Warm up simulation
-      fgRef.current.d3ReheatSimulation();
-      
-      // Auto-fit once settled
-      setTimeout(zoomToFit, 500);
+      // Auto-fit once on load
+      setTimeout(() => fitGraph(), 800);
     }
   }, [graph]);
 
@@ -150,8 +149,8 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#020408] text-cyan-50 overflow-hidden relative fade-in">
+      {showResults && <ResultsPage graph={graph} stats={stats} round={round} onClose={() => setShowResults(false)} />}
       
-      {/* HEADER */}
       <header className="h-16 px-6 border-b border-cyan-900/50 flex justify-between items-center bg-[#050a14] z-20 shrink-0 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="p-1.5 bg-cyan-500/10 rounded border border-cyan-500/50">
@@ -163,8 +162,6 @@ export default function App() {
             </h1>
           </div>
         </div>
-        
-        {/* CIRCUIT STATUS */}
         <div className={`flex items-center gap-2 px-4 py-1 rounded bg-black border ${stats.stability.circuit_status === "HALTED" ? "border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]" : "border-gray-800"}`}>
             {stats.stability.circuit_status === "OPEN" ? (
                 <><Unlock size={14} className="text-green-500"/><span className="text-[10px] text-green-500 font-bold tracking-widest">MARKET OPEN</span></>
@@ -172,7 +169,6 @@ export default function App() {
                 <><Lock size={14} className="text-red-500 animate-pulse"/><span className="text-[10px] text-red-500 font-bold tracking-widest animate-pulse">TRADING HALTED</span></>
             )}
         </div>
-
         <div className="flex gap-8 items-center">
           <div className="flex flex-col w-40 group">
              <span className="text-[9px] text-cyan-600 font-bold tracking-widest mb-1 flex justify-between">
@@ -195,13 +191,18 @@ export default function App() {
             >
                 <Play size={14}/> EXECUTE
             </button>
+            <button 
+                onClick={() => setShowResults(true)} 
+                className="px-4 py-2 rounded-sm border border-purple-500/50 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 transition-all flex items-center gap-2 text-xs font-bold tracking-wider hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+            >
+                <BarChart3 size={14}/> RESULTS
+            </button>
             <button onClick={init} className="p-2 text-gray-500 hover:text-white hover:rotate-180 transition-all duration-500"><RotateCcw size={18}/></button>
           </div>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
-        {/* SIDEBAR */}
         <div className="w-56 border-r border-cyan-900/30 bg-[#050a14] flex flex-col z-20 shrink-0 font-mono">
             <div className="p-3 border-b border-cyan-900/30 text-[10px] font-bold text-cyan-500 flex items-center gap-2"><List size={12}/> NETWORK NODES</div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-cyan-900/50">
@@ -214,8 +215,7 @@ export default function App() {
             </div>
         </div>
 
-        {/* --- MAIN GRAPH CONTAINER (THE LAYOUT FIX) --- */}
-        <div ref={containerRef} className="flex-1 relative bg-[#020408] overflow-hidden font-mono">
+        <div ref={graphWrapperRef} className="flex-1 relative bg-[#020408] overflow-hidden font-mono p-0 m-0">
           {!loading && graph.nodes.length > 0 ? (
             <ForceGraph2D 
               ref={fgRef} 
@@ -224,58 +224,49 @@ export default function App() {
               width={dimensions.width} 
               height={dimensions.height}
               linkColor={() => "#1e293b"}
-              enableZoom={true} // ZOOM RESTORED
-              enablePan={true}  // PAN RESTORED
+              enableZoom={true} // ENABLED
+              enablePan={true}  // ENABLED
               
               nodeCanvasObject={(node, ctx, globalScale) => {
                 const isHovered = hoveredNode && hoveredNode.id === node.id;
                 const isTracked = trackedNode && trackedNode.id === node.id;
-                
-                // VISUALS: Good Size
-                const r = node.is_ccp ? 14 : 7; 
-                const color = node.color; // From Backend (Yellow/Red logic)
+                const r = node.is_ccp ? 10 : 5; // Medium Size
+                const color = node.color; // Comes from backend logic (Fixed in server.py)
 
-                // 1. "Crazy" Hover Glow (Restored)
+                // Strong Glow Interaction
                 if (isTracked || isHovered) {
                     ctx.shadowColor = color; 
-                    ctx.shadowBlur = 40; // Massive Glow
+                    ctx.shadowBlur = 30; 
                     ctx.beginPath(); 
-                    ctx.arc(node.x, node.y, r * 2.0, 0, 2 * Math.PI, false); 
-                    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-                    ctx.fill();
-                    ctx.strokeStyle = '#fff'; 
+                    ctx.arc(node.x, node.y, r * 2, 0, 2 * Math.PI, false); 
+                    ctx.strokeStyle = color; 
                     ctx.lineWidth = 2; 
                     ctx.stroke();
                 }
                 
-                // 2. Node Body
+                // Node Body
                 ctx.shadowColor = color; 
-                ctx.shadowBlur = 20; 
+                ctx.shadowBlur = 10; 
                 ctx.beginPath(); 
                 ctx.arc(node.x, node.y, r, 0, 2 * Math.PI, false); 
                 ctx.fillStyle = color; 
                 ctx.fill();
                 
-                // 3. CCP Core
                 if (node.is_ccp) {
-                    ctx.shadowBlur = 0;
                     ctx.beginPath(); ctx.arc(node.x, node.y, r * 0.6, 0, 2 * Math.PI, false); ctx.fillStyle = '#fff'; ctx.fill();
                 }
                 
-                // 4. Label
                 if (isHovered || node.is_ccp || isTracked) {
                    const label = node.is_ccp ? "CCP PRIME" : `BK-${node.id}`;
                    ctx.font = `bold ${14/globalScale}px monospace`; 
-                   ctx.fillStyle = '#fff'; 
-                   ctx.textAlign = 'center'; 
-                   ctx.fillText(label, node.x, node.y - r - 8);
+                   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(label, node.x, node.y - r - 8);
                 }
               }}
               
               linkCanvasObject={(link, ctx) => {
                 const isHovered = hoveredLink === link;
                 const isMembership = link.type === 'membership';
-                const isRisk = link.color === '#ef4444'; // Red links from backend
+                const isRisk = link.color === '#ef4444'; // Check exact color code for risk
                 
                 const isConnected = (hoveredNode && (link.source.id === hoveredNode.id || link.target.id === hoveredNode.id)) || 
                                     (trackedNode && (link.source.id === trackedNode.id || link.target.id === trackedNode.id));
@@ -286,17 +277,14 @@ export default function App() {
                 ctx.moveTo(link.source.x, link.source.y); 
                 ctx.lineTo(link.target.x, link.target.y);
                 
-                // VISUALS: Neon Lines Restored
                 if (isHovered || isConnected) { 
-                    // Active Interaction: Bright White Laser
-                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.shadowColor = '#fff'; ctx.shadowBlur = 20; 
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.shadowColor = '#fff'; ctx.shadowBlur = 15; 
                 } 
                 else if (isRisk) { 
-                    // Risk: Glowing Red Neon (The "Weird" line you wanted)
-                    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 3; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; 
+                    // RESTORED NEON RED LINES
+                    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; 
                 } 
                 else { 
-                    // Normal: Subtle Grey
                     ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1; ctx.shadowBlur = 0; 
                 }
                 ctx.stroke();
@@ -306,11 +294,12 @@ export default function App() {
           ) : ( <div className="h-full flex flex-col items-center justify-center text-cyan-900 animate-pulse gap-4"><Activity size={48}/> <div className="text-xs tracking-[0.5em]">INITIALIZING NEURAL LATTICE...</div></div> )}
           
           <div className="absolute bottom-6 left-6 z-20">
-              <button onClick={zoomToFit} className="bg-black/50 border border-gray-700 p-2 rounded hover:bg-white/10 hover:border-cyan-500 transition-all text-cyan-500" title="Auto Fit Graph">
+              <button onClick={fitGraph} className="bg-black/50 border border-gray-700 p-2 rounded hover:bg-white/10 hover:border-cyan-500 transition-all text-cyan-500" title="Auto Fit Graph">
                   <Maximize size={20} />
               </button>
           </div>
 
+          {/* ... (Metrics, Stability Matrix, Ledger, Trace, Logs - Same as before) ... */}
           <div className="absolute top-6 left-6 space-y-2 pointer-events-none">
              <MetricCard label="SIMULATION TIME" value={`T-${round.toString().padStart(4, '0')}`} />
              <div className="flex gap-2">
@@ -327,9 +316,10 @@ export default function App() {
                       <button onClick={() => setShowStabilityInfo(!showStabilityInfo)} className="text-gray-500 hover:text-white"><Info size={14}/></button>
                   </div>
               </div>
+              
               {showStabilityInfo ? (
-                  <div className="text-[10px] text-gray-300 space-y-2 animate-in fade-in">
-                      <p className="border-l-2 border-green-500 pl-2"><strong className="text-green-400 block">System Payoff</strong> Total wealth generated.</p>
+                  <div className="text-[10px] text-gray-300 space-y-2 animate-in fade-in slide-in-from-right-2">
+                      <p className="border-l-2 border-green-500 pl-2"><strong className="text-green-400 block">System Payoff</strong> Total wealth generated by cleared transactions.</p>
                       <p className="border-l-2 border-red-500 pl-2"><strong className="text-red-400 block">Circuit Breaker</strong> Halts trading if failures > 30%.</p>
                       <button onClick={() => setShowStabilityInfo(false)} className="w-full mt-2 bg-white/10 py-1 rounded text-center hover:bg-white/20">RETURN</button>
                   </div>
@@ -346,6 +336,7 @@ export default function App() {
                               </div>
                           </div>
                       </div>
+
                       <div className="grid grid-cols-2 gap-2 text-[10px]">
                           <div className="bg-gray-900/80 p-2 rounded border border-gray-700">
                               <div className="flex items-center gap-1 text-gray-500 mb-1"><Wind size={10}/> BUTTERFLY IDX</div>
@@ -386,6 +377,7 @@ export default function App() {
                               <button onClick={() => setShowCCPLedger(false)} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-all"><X size={24}/></button>
                           </div>
                       </div>
+
                       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-pink-900/50">
                           <table className="w-full text-left border-collapse font-mono">
                               <thead className="bg-[#0a0f1e] sticky top-0 z-10 shadow-lg">

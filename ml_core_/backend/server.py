@@ -138,6 +138,28 @@ def calculate_stability_metrics(G):
         total = sum([G.nodes[n].get('assets', 0) for n in G.nodes()])
         hub_a = G.nodes[hub].get('assets', 0)
         butterfly = (hub_a / total * 100) if total > 0 else 0
+    
+    # --- NASH RISK ACCELERATION FACTOR ---
+    # Track how fast Nash risk is increasing across the system
+    nash_acceleration = 0
+    risk_slopes = []
+    for n in G.nodes():
+        if n in system_state['history'] and system_state['history'][n]:
+            hist = system_state['history'][n]
+            if len(hist) > 1:
+                risk_slopes.append(hist[-1].get('slope', 0))  # Last recorded slope
+    
+    if risk_slopes:
+        avg_slope = np.mean(risk_slopes)
+        nash_acceleration = max(0, avg_slope)  # Only positive acceleration matters
+    
+    # --- BUTTERFLY INDEX ENHANCED ---
+    # Butterfly increases with both hub concentration AND nash risk acceleration
+    # Formula: base_butterfly + (nash_acceleration * amplification_factor)
+    acceleration_factor = nash_acceleration * 0.5  # Each unit of slope adds 0.5 to butterfly
+    butterfly += acceleration_factor
+    butterfly = min(100, butterfly)  # Cap at 100%
+    
     healths = [G.nodes[n].get('capital_ratio', 0) for n in G.nodes()]
     entropy = np.std(healths) if healths else 0
     status = "STABLE"
