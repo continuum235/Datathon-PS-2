@@ -1,0 +1,8 @@
+flask
+flask-cors
+pandas
+numpy
+networkx
+scikit-learn
+torch
+torch-geometric

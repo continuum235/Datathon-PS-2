@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-default: #020408;
+  --color-bg-card: #0a0f1e;
+  --color-neon-blue: #06b6d4;
+  --color-neon-pink: #ec4899;
+}
+
+/* HUMANIZED TECH FONT */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+body {
+  background-color: #020408;
+  color: white;
+  margin: 0;
+  /* Primary: Inter (Human), Secondary: JetBrains (Code) */
+  font-family: 'Inter', sans-serif; 
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* CUSTOM SCROLLBARS */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0a0f1e; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; border: 1px solid #0a0f1e; }
+::-webkit-scrollbar-thumb:hover { background: #334155; border: 1px solid #06b6d4; }
+
+/* ANIMATIONS */
+@keyframes scan {
+  0% { top: 0%; opacity: 0.5; }
+  50% { opacity: 1; box-shadow: 0 0 15px #ec4899; }
+  100% { top: 100%; opacity: 0; }
+}
+.animate-scan { animation: scan 3s linear infinite; box-shadow: 0 0 5px #ec4899; }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.animate-pulse-soft { animation: pulse-soft 2s infinite; }
+
+/* CRT Flicker Effect for Loading Screen */
+@keyframes flicker {
+  0% { opacity: 0.97; }
+  5% { opacity: 0.95; }
+  10% { opacity: 0.9; }
+  15% { opacity: 0.95; }
+  20% { opacity: 0.98; }
+  50% { opacity: 0.95; }
+  100% { opacity: 0.98; }
+}
+.crt-effect { animation: flicker 0.15s infinite; pointer-events: none; }
+
+/* Utilities */
+.cursor-crosshair { cursor: crosshair; }
+.mask-linear-fade { mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent); }
