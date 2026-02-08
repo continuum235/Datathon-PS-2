@@ -1,4 +1,4 @@
-# 🏦 ResiliNet: AI-Driven Financial Contagion Simulation
+# ResiliNet: AI-Driven Financial Contagion Simulation
 ## Overview
 **ResiliNet** is an advanced financial simulation engine designed to visualize, predict, and mitigate **Systemic Risk** in interbank lending networks. 
 
